@@ -1,0 +1,1 @@
+{ "name": "task-notebook", "version": "0.1.0", "description": "タスク帳を右側のペインに常に表示する", "types": "./types/index.d.ts" }
