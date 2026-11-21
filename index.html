@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>タスク帳</title>
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --paper: #fffdf8;
+    --ink: #2b2a27;
+    --muted: #7a766d;
+    --line: #e4dfd3;
+    --accent: #3b6ea8;
+    --accent-soft: #e3ecf7;
+    --danger: #b9473a;
+    --high: #c8553d;
+    --mid: #d69a2d;
+    --low: #5c9a6b;
+    --done: #a8a397;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1c1e; --paper: #242528; --ink: #ecebe7; --muted: #9c9a93;
+      --line: #36373b; --accent: #7aa7dc; --accent-soft: #2a3747;
+      --danger: #e07a6c; --high: #e3806a; --mid: #e2b45a; --low: #7fc08f;
+      --done: #6d6b66; --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1c1e; --paper: #242528; --ink: #ecebe7; --muted: #9c9a93;
+    --line: #36373b; --accent: #7aa7dc; --accent-soft: #2a3747;
+    --danger: #e07a6c; --high: #e3806a; --mid: #e2b45a; --low: #7fc08f;
+    --done: #6d6b66; --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", system-ui, sans-serif;
+    font-size: 15px; line-height: 1.5;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 26px; margin: 0; letter-spacing: .04em; }
+  .summary { color: var(--muted); font-size: 13px; }
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+  form.add { margin-top: 18px; padding: 14px; display: grid; gap: 10px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  input, select, textarea, button {
+    font: inherit; color: inherit; background: var(--paper);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  textarea { resize: vertical; min-height: 38px; width: 100%; }
+  .grow { flex: 1 1 200px; min-width: 0; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  :root[data-theme="dark"] button.primary { color: #111; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button.primary { color: #111; } }
+  button.ghost { background: transparent; border-color: transparent; color: var(--muted); padding: 4px 8px; }
+  button.ghost:hover { color: var(--ink); background: var(--accent-soft); }
+  .toolbar { margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tab { border-radius: 999px; padding: 5px 12px; font-size: 13px; background: transparent; }
+  .tab[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .tab .n { opacity: .7; margin-left: 4px; font-size: 12px; }
+  ul.list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+  li.task { padding: 12px 14px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; border-left: 4px solid var(--line); }
+  li.task.p-high { border-left-color: var(--high); }
+  li.task.p-mid { border-left-color: var(--mid); }
+  li.task.p-low { border-left-color: var(--low); }
+  li.task.done { opacity: .65; }
+  li.task.done .title { text-decoration: line-through; color: var(--done); }
+  .check { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; }
+  .title { font-weight: 600; word-break: break-word; }
+  .memo { color: var(--muted); font-size: 13px; white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
+  .meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; }
+  .chip { padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  .chip.due { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+  .chip.due.today { border-color: var(--mid); color: var(--mid); font-weight: 600; }
+  .chip.due.over { border-color: var(--danger); color: var(--danger); font-weight: 600; }
+  .actions { display: flex; gap: 2px; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
+  .edit-grid { grid-column: 2 / 4; display: grid; gap: 8px; }
+  footer { margin-top: 28px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  footer button { font-size: 13px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  @media (max-width: 480px) {
+    li.task { grid-template-columns: auto 1fr; }
+    .actions { grid-column: 2; justify-content: flex-end; }
+    .edit-grid { grid-column: 1 / 3; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📓 タスク帳</h1>
+    <div class="summary" id="summary"></div>
+  </header>
+
+  <form class="add card" id="addForm" autocomplete="off">
+    <div class="row">
+      <label class="sr" for="fTitle">タスク名</label>
+      <input id="fTitle" class="grow" placeholder="やることを入力…" required maxlength="200">
+      <button class="primary" type="submit">追加</button>
+    </div>
+    <div class="row">
+      <label class="sr" for="fDue">期限</label>
+      <input id="fDue" type="date" title="期限">
+      <label class="sr" for="fPri">優先度</label>
+      <select id="fPri" title="優先度">
+        <option value="mid">優先度：中</option>
+        <option value="high">優先度：高</option>
+        <option value="low">優先度：低</option>
+      </select>
+      <label class="sr" for="fCat">カテゴリ</label>
+      <input id="fCat" class="grow" placeholder="カテゴリ（例：仕事、家事）" list="catList" maxlength="40">
+      <datalist id="catList"></datalist>
+    </div>
+    <label class="sr" for="fMemo">メモ</label>
+    <textarea id="fMemo" rows="1" placeholder="メモ（任意）"></textarea>
+  </form>
+
+  <div class="toolbar">
+    <div class="tabs" id="tabs" role="group" aria-label="表示の絞り込み"></div>
+  </div>
+  <div class="toolbar">
+    <label class="sr" for="search">検索</label>
+    <input id="search" class="grow" type="search" placeholder="🔍 検索">
+    <label class="sr" for="catFilter">カテゴリで絞り込み</label>
+    <select id="catFilter"><option value="">すべてのカテゴリ</option></select>
+    <label class="sr" for="sort">並び順</label>
+    <select id="sort">
+      <option value="due">期限が近い順</option>
+      <option value="priority">優先度順</option>
+      <option value="created">追加が新しい順</option>
+    </select>
+  </div>
+
+  <ul class="list" id="list"></ul>
+
+  <footer>
+    <button class="ghost" id="clearDone" type="button">完了済みを削除</button>
+    <button class="ghost" id="exportBtn" type="button">書き出し（JSON）</button>
+    <button class="ghost" id="importBtn" type="button">読み込み</button>
+    <input id="importFile" type="file" accept="application/json" hidden>
+    <button class="ghost" id="themeBtn" type="button">表示テーマ</button>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const KEY = 'task-notebook.v1';
+  const PRI = { high: 0, mid: 1, low: 2 };
+  const PRI_LABEL = { high: '高', mid: '中', low: '低' };
+  const $ = id => document.getElementById(id);
+
+  const store = {
+    get(k, fallback) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  };
+
+  let tasks = store.get(KEY, []);
+  let filter = 'all';
+  let editingId = null;
+
+  const save = () => store.set(KEY, tasks);
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  const todayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const dueState = t => {
+    if (!t.due || t.done) return '';
+    const today = todayStr();
+    return t.due < today ? 'over' : t.due === today ? 'today' : '';
+  };
+  const fmtDue = s => {
+    const [y, m, d] = s.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    const w = '日月火水木金土'[dt.getDay()];
+    return `${y !== new Date().getFullYear() ? y + '/' : ''}${m}/${d}(${w})`;
+  };
+
+  const FILTERS = [
+    ['all', 'すべて', () => true],
+    ['active', '未完了', t => !t.done],
+    ['today', '今日', t => !t.done && t.due === todayStr()],
+    ['over', '期限切れ', t => dueState(t) === 'over'],
+    ['done', '完了', t => t.done],
+  ];
+
+  function categories() {
+    return [...new Set(tasks.map(t => t.cat).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'));
+  }
+
+  function renderTabs() {
+    $('tabs').innerHTML = '';
+    for (const [key, label, fn] of FILTERS) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'tab';
+      b.setAttribute('aria-pressed', String(filter === key));
+      b.innerHTML = `${label}<span class="n">${tasks.filter(fn).length}</span>`;
+      b.onclick = () => { filter = key; render(); };
+      $('tabs').appendChild(b);
+    }
+  }
+
+  function renderCats() {
+    const cats = categories();
+    $('catList').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
+    const sel = $('catFilter'), cur = sel.value;
+    sel.innerHTML = '<option value="">すべてのカテゴリ</option>' + cats.map(c => `<option>${esc(c)}</option>`).join('');
+    sel.value = cats.includes(cur) ? cur : '';
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function visible() {
+    const fn = FILTERS.find(f => f[0] === filter)[2];
+    const q = $('search').value.trim().toLowerCase();
+    const cat = $('catFilter').value;
+    const sort = $('sort').value;
+    return tasks
+      .filter(fn)
+      .filter(t => !cat || t.cat === cat)
+      .filter(t => !q || (t.title + ' ' + (t.memo || '') + ' ' + (t.cat || '')).toLowerCase().includes(q))
+      .sort((a, b) => {
+        if (a.done !== b.done) return a.done ? 1 : -1;
+        if (sort === 'created') return b.created - a.created;
+        if (sort === 'priority') return PRI[a.pri] - PRI[b.pri] || (a.due || '9999').localeCompare(b.due || '9999');
+        return (a.due || '9999').localeCompare(b.due || '9999') || PRI[a.pri] - PRI[b.pri];
+      });
+  }
+
+  function taskEl(t) {
+    const li = document.createElement('li');
+    li.className = `task card p-${t.pri}${t.done ? ' done' : ''}`;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.className = 'check'; cb.checked = t.done;
+    cb.setAttribute('aria-label', `「${t.title}」を完了にする`);
+    cb.onchange = () => { t.done = cb.checked; t.doneAt = t.done ? Date.now() : null; save(); render(); };
+
+    const body = document.createElement('div');
+    const ds = dueState(t);
+    body.innerHTML = `
+      <div class="title">${esc(t.title)}</div>
+      ${t.memo ? `<div class="memo">${esc(t.memo)}</div>` : ''}
+      <div class="meta">
+        <span class="chip" style="background:transparent;color:var(--${t.pri === 'mid' ? 'mid' : t.pri})">優先度 ${PRI_LABEL[t.pri]}</span>
+        ${t.due ? `<span class="chip due ${ds}">${ds === 'over' ? '⚠ ' : ''}${fmtDue(t.due)}${ds === 'today' ? ' 今日' : ''}</span>` : ''}
+        ${t.cat ? `<span class="chip">${esc(t.cat)}</span>` : ''}
+      </div>`;
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    const edit = document.createElement('button');
+    edit.type = 'button'; edit.className = 'ghost'; edit.textContent = '編集';
+    edit.onclick = () => { editingId = editingId === t.id ? null : t.id; render(); };
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'ghost'; del.textContent = '削除';
+    del.onclick = () => { if (confirm(`「${t.title}」を削除しますか？`)) { tasks = tasks.filter(x => x.id !== t.id); save(); render(); } };
+    actions.append(edit, del);
+
+    li.append(cb, body, actions);
+    if (editingId === t.id) li.appendChild(editForm(t));
+    return li;
+  }
+
+  function editForm(t) {
+    const f = document.createElement('form');
+    f.className = 'edit-grid';
+    f.innerHTML = `
+      <input name="title" value="${esc(t.title)}" required maxlength="200" aria-label="タスク名">
+      <div class="row">
+        <input name="due" type="date" value="${t.due || ''}" aria-label="期限">
+        <select name="pri" aria-label="優先度">
+          ${['high', 'mid', 'low'].map(p => `<option value="${p}"${p === t.pri ? ' selected' : ''}>優先度：${PRI_LABEL[p]}</option>`).join('')}
+        </select>
+        <input name="cat" class="grow" value="${esc(t.cat || '')}" list="catList" placeholder="カテゴリ" maxlength="40" aria-label="カテゴリ">
+      </div>
+      <textarea name="memo" rows="2" placeholder="メモ" aria-label="メモ">${esc(t.memo || '')}</textarea>
+      <div class="row" style="justify-content:flex-end">
+        <button type="button" class="ghost" data-cancel>キャンセル</button>
+        <button type="submit" class="primary">保存</button>
+      </div>`;
+    f.querySelector('[data-cancel]').onclick = () => { editingId = null; render(); };
+    f.onsubmit = e => {
+      e.preventDefault();
+      const d = new FormData(f);
+      const title = d.get('title').trim();
+      if (!title) return;
+      Object.assign(t, { title, due: d.get('due') || '', pri: d.get('pri'), cat: d.get('cat').trim(), memo: d.get('memo').trim() });
+      editingId = null; save(); render();
+    };
+    setTimeout(() => f.querySelector('input').focus(), 0);
+    return f;
+  }
+
+  function render() {
+    renderTabs();
+    renderCats();
+    const list = $('list');
+    list.innerHTML = '';
+    const items = visible();
+    if (!items.length) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = tasks.length ? '該当するタスクはありません' : 'まだタスクがありません。上のフォームから追加しましょう ✍️';
+      list.appendChild(li);
+    } else {
+      items.forEach(t => list.appendChild(taskEl(t)));
+    }
+    const remain = tasks.filter(t => !t.done).length;
+    const over = tasks.filter(t => dueState(t) === 'over').length;
+    $('summary').textContent = `残り ${remain} 件 / 全 ${tasks.length} 件${over ? `（期限切れ ${over} 件）` : ''}`;
+  }
+
+  $('addForm').onsubmit = e => {
+    e.preventDefault();
+    const title = $('fTitle').value.trim();
+    if (!title) return;
+    tasks.push({
+      id: uid(), title, memo: $('fMemo').value.trim(), due: $('fDue').value,
+      pri: $('fPri').value, cat: $('fCat').value.trim(), done: false, created: Date.now(), doneAt: null
+    });
+    save();
+    $('fTitle').value = ''; $('fMemo').value = '';
+    render();
+    $('fTitle').focus();
+  };
+
+  $('search').oninput = render;
+  $('catFilter').onchange = render;
+  $('sort').onchange = () => { store.set(KEY + '.sort', $('sort').value); render(); };
+  $('sort').value = store.get(KEY + '.sort', 'due');
+
+  $('clearDone').onclick = () => {
+    const n = tasks.filter(t => t.done).length;
+    if (!n) return alert('完了済みのタスクはありません');
+    if (confirm(`完了済みのタスク ${n} 件を削除しますか？`)) { tasks = tasks.filter(t => !t.done); save(); render(); }
+  };
+
+  $('exportBtn').onclick = () => {
+    const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `task-notebook-${todayStr()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  $('importBtn').onclick = () => $('importFile').click();
+  $('importFile').onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!Array.isArray(data)) throw new Error();
+      const clean = data.filter(t => t && typeof t.title === 'string').map(t => ({
+        id: String(t.id || uid()), title: t.title, memo: String(t.memo || ''), due: /^\d{4}-\d{2}-\d{2}$/.test(t.due) ? t.due : '',
+        pri: PRI[t.pri] !== undefined ? t.pri : 'mid', cat: String(t.cat || ''), done: !!t.done,
+        created: Number(t.created) || Date.now(), doneAt: t.doneAt || null
+      }));
+      if (confirm(`${clean.length} 件を読み込みます。現在のタスクに追加しますか？\n（キャンセルで中止）`)) {
+        const ids = new Set(tasks.map(t => t.id));
+        clean.forEach(t => { if (ids.has(t.id)) t.id = uid(); });
+        tasks = tasks.concat(clean); save(); render();
+      }
+    } catch { alert('ファイルを読み込めませんでした'); }
+    e.target.value = '';
+  };
+
+  const themes = ['auto', 'light', 'dark'];
+  const themeLabel = { auto: '自動', light: 'ライト', dark: 'ダーク' };
+  let theme = store.get(KEY + '.theme', 'auto');
+  const applyTheme = () => {
+    if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    $('themeBtn').textContent = `テーマ：${themeLabel[theme]}`;
+  };
+  $('themeBtn').onclick = () => { theme = themes[(themes.indexOf(theme) + 1) % 3]; store.set(KEY + '.theme', theme); applyTheme(); };
+  applyTheme();
+
+  render();
+})();
+</script>
+</body>
+</html>
